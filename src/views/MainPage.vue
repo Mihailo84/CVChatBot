@@ -2,7 +2,7 @@
   <div class="container">
     <div class="left">
       <!-- Text Above Chat Box -->
-      <h2 class="chat-heading">Any questions about my CV? Feel free to ask! :D</h2>
+      <h2 class="chat-heading">Any questions about my CV???? Feel free to ask! :D</h2>
 
       <!-- Messages Display Box -->
       <div class="chat-box" ref="chatBox">
