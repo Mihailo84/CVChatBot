@@ -4,6 +4,16 @@
       <!-- Text Above Chat Box -->
       <h2 class="chat-heading">Any questions about my CV???? Feel free to ask! :D</h2>
 
+      <!-- Recruiter Name Input -->
+      <div class="recruiter-input-container">
+        <input
+          type="text"
+          class="recruiter-input-box"
+          v-model="recruiterName"
+          placeholder="Enter your name (Recruiter)"
+        />
+      </div>
+
       <!-- Messages Display Box -->
       <div class="chat-box" ref="chatBox">
         <p
@@ -50,27 +60,115 @@ import { ref, computed, nextTick } from 'vue'
 // Reactive array to store messages
 const messages = ref(['Type in a question that you want to be answered!'])
 const newMessage = ref('')
+const recruiterName = ref('') // New recruiter name input
 const chatBox = ref(null)
 const showPopup = ref(false) // Controls the pop-up visibility
 const isSendDisabled = computed(() => newMessage.value.trim() === '')
+const apiUrl = import.meta.env.VITE_API_BASE_URL
+// console.log('API Base URL:', apiUrl)
 
 // Function to add a new message when "Send" is clicked
-const sendMessage = () => {
-  if (!isSendDisabled.value) {
-    messages.value.push(newMessage.value) // Add message to array
-    newMessage.value = '' // Clear input field
+const openAiApiKey = import.meta.env.VITE_OPEN_AI_API_KEY // Get API Key from .env
+const openAiApiUrl = 'https://api.openai.com/v1/chat/completions' // OpenAI API URL
+const textPredefined = import.meta.env.VITE_CV_PREDEFINED_TEXT
 
-    // Auto-scroll to the latest message after Vue updates the DOM
-    nextTick(() => {
-      if (chatBox.value) {
-        chatBox.value.scrollTop = chatBox.value.scrollHeight
+const sendMessage = async () => {
+  if (!isSendDisabled.value) {
+    console.log(textPredefined)
+    const messageText = newMessage.value.trim()
+    if (recruiterName.value == '') {
+      recruiterName.value = 'None'
+    }
+    // Construct request payload for API Gateway
+    const payload = {
+      recruiter_name: recruiterName.value,
+      recruiter_message: messageText,
+    }
+
+    // if (recruiterName.value == 'None') {
+    //   recruiterName.value = null
+    // }
+    try {
+      // Send message to API Gateway
+      const response = await fetch(`${apiUrl}/recruiterMessages`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      })
+
+      const responseData = await response.json()
+
+      if (response.ok) {
+        console.log('Message sent successfully:', responseData)
+
+        // Add the new message to the messages array
+        messages.value.push(messageText)
+        newMessage.value = '' // Clear input field
+
+        // Auto-scroll to the latest message after Vue updates the DOM
+        nextTick(() => {
+          if (chatBox.value) {
+            chatBox.value.scrollTop = chatBox.value.scrollHeight
+          }
+        })
+
+        // Show popup when messages reach 6
+        if (messages.value.length >= 6) {
+          showPopup.value = true
+        }
+
+        // **Send the message to OpenAI API**
+        await getOpenAiResponse(messageText)
+      } else {
+        console.error('Failed to send message:', responseData)
+        alert('Failed to send message. Please try again.')
       }
+    } catch (error) {
+      console.error('Error sending message:', error)
+      alert('An error occurred while sending the message.')
+    }
+  }
+}
+
+const getOpenAiResponse = async (userMessage) => {
+  try {
+    const openAiPayload = {
+      model: 'gpt-3.5-turbo', // Model choice
+      messages: [{ role: 'user', content: textPredefined + userMessage }],
+      temperature: 0.7,
+    }
+    console.log(textPredefined)
+    const openAiResponse = await fetch(openAiApiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${openAiApiKey}`, // Add API Key
+      },
+      body: JSON.stringify(openAiPayload),
     })
 
-    // Show popup when messages reach 6
-    if (messages.value.length >= 6) {
-      showPopup.value = true
+    const openAiData = await openAiResponse.json()
+
+    if (openAiResponse.ok) {
+      const aiMessage = openAiData.choices[0].message.content
+      console.log('ChatGPT Response:', aiMessage)
+
+      // **Add AI response as a normal message**
+      messages.value.push(aiMessage)
+
+      // Auto-scroll to latest message
+      nextTick(() => {
+        if (chatBox.value) {
+          chatBox.value.scrollTop = chatBox.value.scrollHeight
+        }
+      })
+    } else {
+      console.error('Failed to get ChatGPT response:', openAiData)
     }
+  } catch (error) {
+    console.error('Error calling OpenAI API:', error)
   }
 }
 
@@ -93,6 +191,24 @@ body,
   width: 200%;
   height: 100%;
   overflow: hidden;
+}
+
+/* Recruiter name input field */
+.recruiter-input-container {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 10px;
+}
+
+.recruiter-input-box {
+  width: 80%;
+  padding: 10px;
+  font-size: 16px;
+  border: 1px solid #000;
+  border-radius: 5px;
+  outline: none;
+  background-color: white;
+  text-align: center;
 }
 
 .container {
